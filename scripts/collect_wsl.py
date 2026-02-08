@@ -123,8 +123,8 @@ try:
         plt.pause(0.01)  # Small pause to update the plot
 
         angle = np.clip(angle, -0.5, 0.5)
-        Kd = 15  # Base wheel speeds
-        Ka = 15  # Turn speed
+        Kd = 10  # Base wheel speeds
+        Ka = 10  # Turn speed
 
 
 

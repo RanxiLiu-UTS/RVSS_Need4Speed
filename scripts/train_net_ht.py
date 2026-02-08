@@ -37,7 +37,7 @@ def imshow(img):
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Resize((40, 60)),
                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                                ])
+                                ]) # [H,W,C] -> [C,H, W] -> [C, 40, 60] -> (data-0.5)/0.5
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -45,7 +45,7 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 ## Train dataset ##
 ###################
 
-train_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'train_starter'), '.jpg', transform)
+train_ds = SteerDataSet(os.path.join(script_path, '..', 'myData', 'train_starter_plus'), '.jpg', transform)
 print("The train dataset contains %d images " % len(train_ds))
 
 #data loader nicely batches images for the training process and shuffles (if desired)
@@ -76,8 +76,8 @@ imshow(torchvision.utils.make_grid(example_ims))
 ## Validation dataset ##
 ########################
 
-val_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'val_starter'), '.jpg', transform)
-print("The validation dataset contains %d images " % len(val_ds))
+val_ds = SteerDataSet(os.path.join(script_path, '..', 'myData', 'val_starter'), '.jpg', transform)
+print("The valuation dataset contains %d images " % len(val_ds))
 
 #data loader nicely batches images for the training process and shuffles (if desired)
 valloader = DataLoader(val_ds,batch_size=1)
@@ -104,22 +104,22 @@ plt.show()
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.conv1 = nn.Conv2d(3, 6, 5) # in_channels, out_channels, kernel_size
         self.conv2 = nn.Conv2d(6, 16, 5)
 
         self.pool = nn.MaxPool2d(2, 2)
 
-        self.fc1 = nn.Linear(1344, 256)
-        self.fc2 = nn.Linear(256, 5)
+        self.fc1 = nn.Linear(1344, 128)
+        self.fc2 = nn.Linear(128, 5)
 
         self.relu = nn.ReLU()
 
 
     def forward(self, x):
         #extract features with convolutional layers
-        x = self.pool(self.relu(self.conv1(x)))
-        x = self.pool(self.relu(self.conv2(x)))
-        x = torch.flatten(x, 1) # flatten all dimensions except batch
+        x = self.pool(self.relu(self.conv1(x))) # [3,40,60] -> [6,18,28]
+        x = self.pool(self.relu(self.conv2(x))) # [6,18,28] -> [16, 7, 12]
+        x = torch.flatten(x, 1) # flatten all dimensions except batch， 1344
         
         #linear layer for classification
         x = self.fc1(x)
@@ -138,7 +138,8 @@ net = Net()
 #for classification tasks
 criterion = nn.CrossEntropyLoss()
 #You could use also ADAM
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+optimizer = optim.SGD(net.parameters(), lr=0.005, momentum=0.9)
+# optimizer = optim.Adam(net.parameters(), lr=0.001)
 
 
 #######################################################################################################################################
@@ -147,7 +148,7 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 losses = {'train': [], 'val': []}
 accs = {'train': [], 'val': []}
 best_acc = 0
-for epoch in range(10):  # loop over the dataset multiple times
+for epoch in range(20):  # loop over the dataset multiple times
 
     epoch_loss = 0.0
     correct = 0
@@ -171,6 +172,8 @@ for epoch in range(10):  # loop over the dataset multiple times
         _, predicted = torch.max(outputs, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
+        # print("predict: ", predicted)
+        # print("label: ", labels)
 
     print(f'Epoch {epoch + 1} loss: {epoch_loss / len(trainloader)}')
     losses['train'] += [epoch_loss / len(trainloader)]
@@ -199,8 +202,11 @@ for epoch in range(10):  # loop over the dataset multiple times
     # print accuracy for each class
     class_accs = []
     for classname, correct_count in correct_pred.items():
-        accuracy = 100 * float(correct_count) / total_pred[classname]
-        class_accs += [accuracy]
+        # print("classname & correct_count:\n")
+        # print(classname, correct_count)
+        if total_pred[classname] > 0:
+            accuracy = 100 * float(correct_count) / total_pred[classname]
+            class_accs += [accuracy]
 
     accs['val'] += [np.mean(class_accs)]
     losses['val'] += [val_loss/len(valloader)]
@@ -267,13 +273,14 @@ with torch.no_grad():
                 correct_pred[val_ds.class_labels[label.item()]] += 1
             total_pred[val_ds.class_labels[label.item()]] += 1
 
-cm = metrics.confusion_matrix(actual, predicted, normalize = 'true')
-disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm,
-                              display_labels=val_ds.class_labels)
-disp.plot()
+# cm = metrics.confusion_matrix(actual, predicted, normalize = 'true')
+# disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm,
+#                               display_labels=val_ds.class_labels)
+# disp.plot()
 plt.show()
 
 # print accuracy for each class
 for classname, correct_count in correct_pred.items():
-    accuracy = 100 * float(correct_count) / total_pred[classname]
-    print(f'Accuracy for class: {classname:5s} is {accuracy:.1f}%')
+    if total_pred[classname] > 0:
+        accuracy = 100 * float(correct_count) / total_pred[classname]
+        print(f'Accuracy for class: {classname:5s} is {accuracy:.1f}%')

@@ -5,6 +5,7 @@ from torch.utils.data import Dataset
 import cv2
 from glob import glob
 from os import path
+from PIL import Image
 
 class SteerDataSet(Dataset):
     
@@ -26,6 +27,11 @@ class SteerDataSet(Dataset):
     def __getitem__(self,idx):
         f = self.filenames[idx]        
         img = cv2.imread(f)[120:, :, :]
+        # img = Image.open(f).convert('RGB')
+        # w, h = img.size
+        # img = img.crop((0, h // 2, w, h))
+
+        # print(img.size)
         
         if self.transform == None:
             img = self.totensor(img)
